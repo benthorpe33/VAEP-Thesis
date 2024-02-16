@@ -1,6 +1,7 @@
 """Kloppy EventDataset to SPADL converter."""
 import warnings
 from typing import Any, Optional, cast
+from tqdm import tqdm
 
 import kloppy
 import pandas as pd  # type: ignore
@@ -86,20 +87,20 @@ def convert_to_actions(
 
     # Convert the dataset to the SPADL coordinate system
     new_dataset = dataset.transform(
-        to_orientation=Orientation.FIXED_HOME_AWAY,  # FIXME
+        to_orientation=Orientation.ACTION_EXECUTING_TEAM,  # Fixed
         to_coordinate_system=_SoccerActionCoordinateSystem(normalized=False),
     )
 
     # Convert the events to SPADL actions
     actions = []
-    for event in new_dataset.events:
+    for event in tqdm(new_dataset.events):
         action = dict(
             game_id=game_id,
             original_event_id=event.event_id,
             period_id=event.period.id,
             time_seconds=event.timestamp,
-            team_id=event.team.team_id if event.team else None,
-            player_id=event.player.player_id if event.player else None,
+            team_id=event.team["team_id"] if event.team else None,
+            player_id=event.player["player_id"] if event.player else None,
             start_x=event.coordinates.x if event.coordinates else None,
             start_y=event.coordinates.y if event.coordinates else None,
             **_get_end_location(event),
@@ -163,6 +164,7 @@ def _get_end_location(event: Event) -> dict[str, Optional[float]]:
                 "end_x": event.result_coordinates.x,
                 "end_y": event.result_coordinates.y,
             }
+
     if event.coordinates:
         return {"end_x": event.coordinates.x, "end_y": event.coordinates.y}
     return {"end_x": None, "end_y": None}
@@ -188,7 +190,7 @@ def _parse_event(event: Event) -> dict[str, int]:
         # EventType.PLAYER_ON: _parse_event_as_non_action,
         # EventType.PLAYER_OFF: _parse_event_as_non_action,
         # EventType.BALL_OUT: _parse_event_as_non_action,
-        # EventType.FORMATION_CHANGE:_parse_event_as_non_action,
+        # EventType.FORMATION_CHANGE: _parse_event_as_non_action,
     }
     parser = events.get(event.event_type, _parse_event_as_non_action)
     a, r, b = parser(event)

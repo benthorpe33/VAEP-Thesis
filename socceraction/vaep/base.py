@@ -22,6 +22,7 @@ from . import labels as lab
 
 try:
     import xgboost
+    from xgboost import plot_importance
 except ImportError:
     xgboost = None  # type: ignore
 try:
@@ -232,6 +233,17 @@ class VAEP:
             fit_params = {**fit_params, **val_params}
         # Train the model
         model = xgboost.XGBClassifier(**tree_params)
+
+        # My code
+        # print(plot_importance(model))
+        # importances = model.feature_importances_
+        # feature_names = X.columns
+        # importance_df = pd.DataFrame({
+        #     'Feature': feature_names,
+        #     'Importance': importances
+        # }).sort_values(by='Importance', ascending=False)
+        # importance_df_filtered = importance_df[importance_df['Importance'] > 0]
+
         return model.fit(X, y, **fit_params)
 
     def _fit_catboost(
