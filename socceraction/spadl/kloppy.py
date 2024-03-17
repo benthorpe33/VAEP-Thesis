@@ -73,11 +73,12 @@ def convert_to_actions(
     """
     # Check if Kloppy is installed and if the version is supported
     if dataset.metadata.provider not in _SUPPORTED_PROVIDERS:
-        warnings.warn(
-            f"Converting {dataset.metadata.provider} data is not yet supported. "
-            f"The result may be incorrect or incomplete. "
-            f"Supported providers are: {', '.join([p.value for p in _SUPPORTED_PROVIDERS.keys()])}"
-        )
+        hi = 1
+        # warnings.warn(
+        #     f"Converting {dataset.metadata.provider} data is not yet supported. "
+        #     f"The result may be incorrect or incomplete. "
+        #     f"Supported providers are: {', '.join([p.value for p in _SUPPORTED_PROVIDERS.keys()])}"
+        # )
     elif _KLOPPY_VERSION < _SUPPORTED_PROVIDERS[dataset.metadata.provider]:
         warnings.warn(
             f"Converting {dataset.metadata.provider} data is only supported from "
@@ -93,20 +94,24 @@ def convert_to_actions(
 
     # Convert the events to SPADL actions
     actions = []
-    for event in tqdm(new_dataset.events):
-        action = dict(
-            game_id=game_id,
-            original_event_id=event.event_id,
-            period_id=event.period.id,
-            time_seconds=event.timestamp,
-            team_id=event.team["team_id"] if event.team else None,
-            player_id=event.player["player_id"] if event.player else None,
-            start_x=event.coordinates.x if event.coordinates else None,
-            start_y=event.coordinates.y if event.coordinates else None,
-            **_get_end_location(event),
-            **_parse_event(event),
-        )
-        actions.append(action)
+    for event in new_dataset.events:
+        try:
+            action = dict(
+                game_id=game_id,
+                original_event_id=event.event_id,
+                period_id=event.period.id,
+                time_seconds=event.timestamp,
+                team_id=event.team["team_id"] if event.team else None,
+                player_id=event.player["player_id"] if event.player else None,
+                start_x=event.coordinates.x if event.coordinates else None,
+                start_y=event.coordinates.y if event.coordinates else None,
+                **_get_end_location(event),
+                **_parse_event(event),
+            )
+            actions.append(action)
+        except TypeError as e:
+            print(e)
+            continue
 
     # Create the SPADL actions DataFrame
     df_actions = (

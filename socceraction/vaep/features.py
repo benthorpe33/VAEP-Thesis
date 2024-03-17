@@ -216,7 +216,7 @@ def result(actions: SPADLActions) -> Features:
     X = pd.DataFrame(index=actions.index)
     X["result"] = pd.Categorical(
         actions["result_id"].replace(spadlcfg.results_df().result_name.to_dict()),
-        categories=spadlcfg.actiontypes,
+        categories=spadlcfg.results,
         ordered=False,
     )
     return X
@@ -438,7 +438,11 @@ def time(actions: Actions) -> Features:
         action was performed.
     """
     timedf = actions[['period_id', 'time_seconds']].copy()
-    timedf['time_seconds_overall'] = ((timedf.period_id - 1) * 45 * 60) + timedf.time_seconds
+    try:
+        timedf['time_seconds_overall'] = ((timedf.period_id - 1) * 45 * 60) + timedf.time_seconds
+    except TypeError:
+        timedf['period_id'] = timedf['period_id'].astype(int)
+        timedf['time_seconds_overall'] = ((timedf.period_id - 1) * 45 * 60) + timedf.time_seconds
     return timedf
 
 

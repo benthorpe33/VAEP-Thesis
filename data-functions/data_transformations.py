@@ -1,6 +1,6 @@
 import pandas as pd
 
-from kloppy.wyscout import load, load_open_data
+from kloppy.wyscout import load
 from socceraction.spadl.kloppy import *
 import json
 import requests
@@ -30,8 +30,8 @@ def wyscout_to_kloppy(file_path):
     return kloppy_event_data
 
 
-def kloppy_to_spadl(kloppy_event_data):
-    spadl_event_data = convert_to_actions(kloppy_event_data)
+def kloppy_to_spadl(kloppy_event_data, game_id=None):
+    spadl_event_data = convert_to_actions(kloppy_event_data, game_id=game_id)
     return spadl_event_data
 
 

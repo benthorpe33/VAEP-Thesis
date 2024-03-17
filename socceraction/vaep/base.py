@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 from sklearn.exceptions import NotFittedError
 from sklearn.metrics import brier_score_loss, roc_auc_score
+import shap
 
 import socceraction.spadl as spadlcfg
 
@@ -33,7 +34,6 @@ try:
     import lightgbm
 except ImportError:
     lightgbm = None  # type: ignore
-
 
 xfns_default = [
     fs.actiontype_onehot,
@@ -86,9 +86,9 @@ class VAEP:
     _vaep = vaep
 
     def __init__(
-        self,
-        xfns: Optional[list[fs.FeatureTransfomer]] = None,
-        nb_prev_actions: int = 3,
+            self,
+            xfns: Optional[list[fs.FeatureTransfomer]] = None,
+            nb_prev_actions: int = 3,
     ) -> None:
         self.__models: dict[str, Any] = {}
         self.xfns = xfns_default if xfns is None else xfns
@@ -117,7 +117,7 @@ class VAEP:
         return pd.concat([fn(gamestates) for fn in self.xfns], axis=1)
 
     def compute_labels(
-        self, game: pd.Series, game_actions: fs.Actions  # pylint: disable=W0613
+            self, game: pd.Series, game_actions: fs.Actions  # pylint: disable=W0613
     ) -> pd.DataFrame:
         """
         Compute the labels for each game state in the given game.
@@ -138,13 +138,13 @@ class VAEP:
         return pd.concat([fn(game_actions_with_names) for fn in self.yfns], axis=1)
 
     def fit(
-        self,
-        X: pd.DataFrame,
-        y: pd.DataFrame,
-        learner: str = 'xgboost',
-        val_size: float = 0.25,
-        tree_params: Optional[dict[str, Any]] = None,
-        fit_params: Optional[dict[str, Any]] = None,
+            self,
+            X: pd.DataFrame,
+            y: pd.DataFrame,
+            learner: str = 'xgboost',
+            val_size: float = 0.25,
+            tree_params: Optional[dict[str, Any]] = None,
+            fit_params: Optional[dict[str, Any]] = None,
     ) -> 'VAEP':
         """
         Fit the model according to the given training data.
@@ -190,6 +190,10 @@ class VAEP:
             missing_cols = ' and '.join(set(cols).difference(X.columns))
             raise ValueError(f'{missing_cols} are not available in the features dataframe')
 
+        # MY CODE
+        # cols.remove("actiontype_shot_result_success_a0")
+        # cols = [col for col in cols if "a0" not in col]
+
         # split train and validation data
         X_train, y_train = X.iloc[train_idx][cols], y.iloc[train_idx]
         X_val, y_val = X.iloc[val_idx][cols], y.iloc[val_idx]
@@ -214,12 +218,12 @@ class VAEP:
         return self
 
     def _fit_xgboost(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        eval_set: Optional[list[tuple[pd.DataFrame, pd.Series]]] = None,
-        tree_params: Optional[dict[str, Any]] = None,
-        fit_params: Optional[dict[str, Any]] = None,
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            eval_set: Optional[list[tuple[pd.DataFrame, pd.Series]]] = None,
+            tree_params: Optional[dict[str, Any]] = None,
+            fit_params: Optional[dict[str, Any]] = None,
     ) -> 'xgboost.XGBClassifier':
         if xgboost is None:
             raise ImportError('xgboost is not installed.')
@@ -234,8 +238,29 @@ class VAEP:
         # Train the model
         model = xgboost.XGBClassifier(**tree_params)
 
-        # My code
-        # print(plot_importance(model))
+        # MY CODE
+
+        # X_passes = X.loc[(X['actiontype_pass_a1']) | (X['actiontype_pass_a2'])]
+        # y_passes = y[X_passes.index]
+        # model.fit(X_passes, y_passes, **fit_params)
+
+        # X_crosses = X.loc[(X['actiontype_cross_a1']) | (X['actiontype_cross_a2'])]
+        # y_crosses = y[X_crosses.index]
+        # model.fit(X_crosses, y_crosses, **fit_params)
+
+        # X_actions = X.filter(like='actiontype')
+        # y_actions = y[X_actions.index]
+        # model.fit(X_actions, y_actions, **fit_params)
+
+        # result_columns = [col for col in X.columns if 'result_a0' in col]
+        result_columns = [col for col in X.columns if 'result' in col]
+        # For each of those columns, randomize the values to be either True or False
+        for col in result_columns:
+            # Use numpy to generate a random array of True/False values, matching the length of the DataFrame
+            X[col] = np.random.choice([True, False], size=len(X))
+
+        model.fit(X, y, **fit_params)
+        #
         # importances = model.feature_importances_
         # feature_names = X.columns
         # importance_df = pd.DataFrame({
@@ -244,15 +269,21 @@ class VAEP:
         # }).sort_values(by='Importance', ascending=False)
         # importance_df_filtered = importance_df[importance_df['Importance'] > 0]
 
+        explainer = shap.Explainer(model)
+        shap_values = explainer(X)
+        shap.plots.beeswarm(shap_values, max_display=20)
+
+        ################################
+
         return model.fit(X, y, **fit_params)
 
     def _fit_catboost(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        eval_set: Optional[list[tuple[pd.DataFrame, pd.Series]]] = None,
-        tree_params: Optional[dict[str, Any]] = None,
-        fit_params: Optional[dict[str, Any]] = None,
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            eval_set: Optional[list[tuple[pd.DataFrame, pd.Series]]] = None,
+            tree_params: Optional[dict[str, Any]] = None,
+            fit_params: Optional[dict[str, Any]] = None,
     ) -> 'catboost.CatBoostClassifier':
         if catboost is None:
             raise ImportError('catboost is not installed.')
@@ -260,7 +291,7 @@ class VAEP:
         if tree_params is None:
             tree_params = dict(eval_metric='BrierScore', loss_function='Logloss', iterations=100)
         if fit_params is None:
-            is_cat_feature = [c.dtype.name == 'category' for (_, c) in X.iteritems()]
+            is_cat_feature = [c.dtype.name == 'category' for (_, c) in X.items()]
             fit_params = dict(
                 cat_features=np.nonzero(is_cat_feature)[0].tolist(),
                 verbose=True,
@@ -273,12 +304,12 @@ class VAEP:
         return model.fit(X, y, **fit_params)
 
     def _fit_lightgbm(
-        self,
-        X: pd.DataFrame,
-        y: pd.Series,
-        eval_set: Optional[list[tuple[pd.DataFrame, pd.Series]]] = None,
-        tree_params: Optional[dict[str, Any]] = None,
-        fit_params: Optional[dict[str, Any]] = None,
+            self,
+            X: pd.DataFrame,
+            y: pd.Series,
+            eval_set: Optional[list[tuple[pd.DataFrame, pd.Series]]] = None,
+            tree_params: Optional[dict[str, Any]] = None,
+            fit_params: Optional[dict[str, Any]] = None,
     ) -> 'lightgbm.LGBMClassifier':
         if lightgbm is None:
             raise ImportError('lightgbm is not installed.')
@@ -296,6 +327,11 @@ class VAEP:
     def _estimate_probabilities(self, X: pd.DataFrame) -> pd.DataFrame:
         # filter feature columns
         cols = self._fs.feature_column_names(self.xfns, self.nb_prev_actions)
+
+        # MY CODE
+        # cols.remove("actiontype_shot_result_success_a0")
+        # cols = [col for col in cols if "a0" not in col]
+
         if not set(cols).issubset(set(X.columns)):
             missing_cols = ' and '.join(set(cols).difference(X.columns))
             raise ValueError(f'{missing_cols} are not available in the features dataframe')
@@ -306,7 +342,7 @@ class VAEP:
         return Y_hat
 
     def rate(
-        self, game: pd.Series, game_actions: fs.Actions, game_states: Optional[fs.Features] = None
+            self, game: pd.Series, game_actions: fs.Actions, game_states: Optional[fs.Features] = None
     ) -> pd.DataFrame:
         """
         Compute the VAEP rating for the given game states.
