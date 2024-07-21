@@ -117,7 +117,7 @@ class VAEP:
         return pd.concat([fn(gamestates) for fn in self.xfns], axis=1)
 
     def compute_labels(
-            self, game: pd.Series, game_actions: fs.Actions  # pylint: disable=W0613
+            self, game: pd.Series, game_actions: fs.Actions, k: int  # pylint: disable=W0613
     ) -> pd.DataFrame:
         """
         Compute the labels for each game state in the given game.
@@ -135,7 +135,7 @@ class VAEP:
             Returns the labels of each game state in the game.
         """
         game_actions_with_names = self._spadlcfg.add_names(game_actions)  # type: ignore
-        return pd.concat([fn(game_actions_with_names) for fn in self.yfns], axis=1)
+        return pd.concat([fn(game_actions_with_names, nr_actions=k) for fn in self.yfns], axis=1)
 
     def fit(
             self,
@@ -240,26 +240,26 @@ class VAEP:
 
         # MY CODE
 
-        # X_passes = X.loc[(X['actiontype_pass_a1']) | (X['actiontype_pass_a2'])]
+        # model.fit(X, y, **fit_params)
+
+        # X_passes = X.loc[X['actiontype_pass_a0']]
         # y_passes = y[X_passes.index]
-        # model.fit(X_passes, y_passes, **fit_params)
-
-        # X_crosses = X.loc[(X['actiontype_cross_a1']) | (X['actiontype_cross_a2'])]
+        # passing_model = xgboost.XGBClassifier(**tree_params)
+        # passing_model.fit(X_passes, y_passes, **fit_params)
+        # #
+        # X_crosses = X.loc[X['actiontype_cross_a0']]
         # y_crosses = y[X_crosses.index]
-        # model.fit(X_crosses, y_crosses, **fit_params)
+        # crossing_model = xgboost.XGBClassifier(**tree_params)
+        # crossing_model.fit(X_crosses, y_crosses, **fit_params)
 
-        # X_actions = X.filter(like='actiontype')
-        # y_actions = y[X_actions.index]
-        # model.fit(X_actions, y_actions, **fit_params)
+        # Need to find columns that mark successful shots and randomize those
 
-        # result_columns = [col for col in X.columns if 'result_a0' in col]
-        result_columns = [col for col in X.columns if 'result' in col]
-        # For each of those columns, randomize the values to be either True or False
-        for col in result_columns:
-            # Use numpy to generate a random array of True/False values, matching the length of the DataFrame
-            X[col] = np.random.choice([True, False], size=len(X))
+        # result_columns = [col for col in X.columns if 'result' in col]
+        # for col in result_columns:
+        #     X[col] = np.random.choice([True, False], size=len(X))
+        # no_results_model = xgboost.XGBClassifier(**tree_params)
+        # no_results_model.fit(X, y, **fit_params)
 
-        model.fit(X, y, **fit_params)
         #
         # importances = model.feature_importances_
         # feature_names = X.columns
@@ -269,9 +269,11 @@ class VAEP:
         # }).sort_values(by='Importance', ascending=False)
         # importance_df_filtered = importance_df[importance_df['Importance'] > 0]
 
-        explainer = shap.Explainer(model)
-        shap_values = explainer(X)
-        shap.plots.beeswarm(shap_values, max_display=20)
+        # explainer = shap.Explainer(model)
+        # shap_values = explainer(X)
+        #
+        # shap.plots.waterfall(shap_values[1245])
+        # shap.plots.beeswarm(shap_values, max_display=11)
 
         ################################
 
