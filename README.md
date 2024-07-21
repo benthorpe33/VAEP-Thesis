@@ -7,6 +7,6 @@ This thesis seeks to enhance the analytical modeling of player actions in soccer
 ### File Directory
 - main.py: Contains the majority of functions created and code tested I used in writing my thesis
 - data_transformations.py: Contains various data functions needed to update and run my code
-- socceraction/: contains a version of the socceraction package (github.com/ML-KULeuven/socceraction) modified to work with Wyscout V3 data; Most changes I needed to make and my visualization code can be found in socceraction/vaep/base.py
+- socceraction: contains a version of the socceraction package (github.com/ML-KULeuven/socceraction) modified to work with Wyscout V3 data; Most changes I needed to make and my visualization code can be found in socceraction/vaep/base.py
 - Thesis Paper: Current draft of my thesis paper
 - Thesis Presentation: PDF version of the presentation I made to a committee consisting of Duke Statistics Department faculty where I defended my thesis
